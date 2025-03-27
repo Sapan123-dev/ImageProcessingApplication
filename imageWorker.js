@@ -1,6 +1,6 @@
 // imageWorker.js
 const { parentPort, workerData } = require('worker_threads');
-const fs = require('fs');
+const fsPromise = require('fs').promises;
 const { applyFilter }=require('./utils/applyFilterUtil');
 
 const { inputPath, outputPath, filter } = workerData;
@@ -9,8 +9,8 @@ async function processImage() {
   return new Promise((resolve) => {
     setTimeout(async () => {
       const filteredBuffer=await applyFilter(inputPath, filter);
-      fs.writeFileSync(outputPath, filteredBuffer);
-      fs.unlinkSync(inputPath);
+      fsPromise.writeFile(outputPath, filteredBuffer);
+      // fs.unlinkSync(inputPath);
       resolve();
     }, 500);
   });

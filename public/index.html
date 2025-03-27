@@ -1,4 +1,3 @@
-<!-- public/index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -115,6 +114,25 @@
       padding: 20px;
       display: none;
     }
+    #fileList {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .file-item {
+      background-color: #eef2f7;
+      padding: 5px 10px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .file-item .remove-file {
+      color: #e74c3c;
+      cursor: pointer;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -126,7 +144,8 @@
       <form id="uploadForm">
         <div class="form-group">
           <label for="images">Select multiple images:</label>
-          <input type="file" id="images" name="images" multiple accept="image/*" required>
+          <input type="file" id="images" name="images" multiple="multiple" accept="image/*" required>
+          <div id="fileList"></div>
         </div>
         
         <div class="form-group">
@@ -188,72 +207,95 @@
   </div>
 
   <script>
-    document.getElementById('uploadForm').addEventListener('submit', async function(e) {
-      e.preventDefault();
-      
-      const formData = new FormData(this);
-      const images = document.getElementById('images').files;
-      const filter = document.getElementById('filter').value;
-      const useMultiThreading = document.querySelector('input[name="threadingMode"]:checked').value;
-      
-      // Add each file to the form data
-      for (let i = 0; i < images.length; i++) {
-        formData.append('images', images[i]);
-      }
-      
-      console.log(formData);
-    //   Add filter and threading mode
-    //   formData.append('filter', filter);
-      formData.append('useMultiThreading', useMultiThreading);
-      
-      // Show loading indicator
-      document.getElementById('loadingIndicator').style.display = 'block';
-      document.getElementById('results').style.display = 'none';
-      
-      try {
-        const response = await fetch('/upload', {
-          method: 'POST',
-          body: formData
+    const imagesInput = document.getElementById('images');
+    const fileList = document.getElementById('fileList');
+
+    // Function to update file list display
+    function updateFileList() {
+      fileList.innerHTML = '';
+      Array.from(imagesInput.files).forEach((file, index) => {
+        const fileItem = document.createElement('div');
+        fileItem.className = 'file-item';
+        
+        const fileName = document.createElement('span');
+        fileName.textContent = file.name;
+        
+        const removeButton = document.createElement('span');
+        removeButton.textContent = '×';
+        removeButton.className = 'remove-file';
+        removeButton.addEventListener('click', () => {
+          // Remove this specific file from the FileList
+          const updatedFiles = Array.from(imagesInput.files).filter((_, i) => i !== index);
+          const newFileList = new DataTransfer();
+          updatedFiles.forEach(file => newFileList.items.add(file));
+          imagesInput.files = newFileList.files;
+          updateFileList();
         });
-        
-        const data = await response.json();
-        
-        // Hide loading, show results
-        document.getElementById('loadingIndicator').style.display = 'none';
-        document.getElementById('results').style.display = 'block';
-        
-        // Update metrics
-        document.getElementById('processingTime').textContent = data.processingTime;
-        document.getElementById('imageCount').textContent = data.results.length;
-        document.getElementById('processingMethod').textContent = 
-          useMultiThreading === 'true' ? 'Multi-threaded' : 'Single-threaded';
-        
-        // Clear and populate gallery
-        const gallery = document.getElementById('gallery');
-        gallery.innerHTML = '';
-        
-        data.results.forEach(image => {
-          const card = document.createElement('div');
-          card.className = 'image-card';
-          
-          const img = document.createElement('img');
-          img.src = image.processedPath;
-          img.alt = image.originalName;
-          
-          const info = document.createElement('div');
-          info.className = 'image-info';
-          info.textContent = image.originalName;
-          
-          card.appendChild(img);
-          card.appendChild(info);
-          gallery.appendChild(card);
-        });
-        
-      } catch (error) {
-        console.error('Error uploading images:', error);
-        alert('Failed to process images. Please try again.');
-        document.getElementById('loadingIndicator').style.display = 'none';
-      }
+
+        fileItem.appendChild(fileName);
+        fileItem.appendChild(removeButton);
+        fileList.appendChild(fileItem);
+      });
+    }
+
+    // Event listener for file input changes
+    imagesInput.addEventListener('change', updateFileList);
+
+    document.getElementById('uploadForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const formData = new FormData(this);
+        const images = document.getElementById('images').files;
+        const filter = document.getElementById('filter').value;
+        const useMultiThreading = document.querySelector('input[name="threadingMode"]:checked').value;
+
+        for (let i = 0; i < images.length; i++) {
+            formData.append('images', images[i]);
+        }
+
+        // formData.append('filter', filter);
+        formData.append('useMultiThreading', useMultiThreading);
+
+        document.getElementById('loadingIndicator').style.display = 'block';
+        document.getElementById('results').style.display = 'none';
+
+        try {
+            const response = await fetch('/upload', { method: 'POST', body: formData });
+            const data = await response.json();
+
+            document.getElementById('loadingIndicator').style.display = 'none';
+            document.getElementById('results').style.display = 'block';
+
+            document.getElementById('processingTime').textContent = data.processingTime;
+            document.getElementById('imageCount').textContent = data.results.length;
+            document.getElementById('processingMethod').textContent =
+                useMultiThreading === 'true' ? 'Multi-threaded' : 'Single-threaded';
+
+            const gallery = document.getElementById('gallery');
+            gallery.innerHTML = '';
+
+            data.results.forEach(image => {
+                const card = document.createElement('div');
+                card.className = 'image-card';
+
+                const img = document.createElement('img');
+                img.src = image.processedPath;
+                img.alt = image.originalName;
+
+                const info = document.createElement('div');
+                info.className = 'image-info';
+                info.textContent = image.originalName;
+
+                card.appendChild(img);
+                card.appendChild(info);
+                gallery.appendChild(card);
+            });
+
+        } catch (error) {
+            console.error('Error uploading images:', error);
+            alert('Failed to process images. Please try again.');
+            document.getElementById('loadingIndicator').style.display = 'none';
+        }
     });
   </script>
 </body>
