@@ -9,6 +9,13 @@ const { applyFilter }=require('./utils/applyFilterUtil');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Serve static files from the 'public' directory
+app.use(express.static('public'));
+app.use('/processed', express.static('processed'));
+app.use(express.json());
+
+const fsPromise = require('fs').promises;
+
 // Set up storage for uploaded files
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -31,16 +38,10 @@ if (!fs.existsSync(processedDir)) {
   fs.mkdirSync(processedDir);
 }
 
-// Serve static files from the 'public' directory
-app.use(express.static('public'));
-app.use('/processed', express.static('processed'));
-app.use(express.json());
-
-const fsPromise = require('fs').promises;
-
 async function processSingleThreaded(files, filter) {
     const startTime = Date.now();
     const results = [];
+    console.log(files);
 
     for (const file of files) {
         try {
