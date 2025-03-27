@@ -1,0 +1,260 @@
+<!-- public/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi-threaded Image Processor</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+      color: #333;
+    }
+    h1 {
+      color: #2c3e50;
+      text-align: center;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .upload-form {
+      background-color: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    select, input[type="file"] {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .processing-options {
+      display: flex;
+      gap: 15px;
+      margin: 15px 0;
+    }
+    .radio-group {
+      display: flex;
+      align-items: center;
+    }
+    button {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background-color: #2980b9;
+    }
+    .results {
+      background-color: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      display: none;
+    }
+    .metrics {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      font-size: 18px;
+    }
+    .metric {
+      text-align: center;
+      padding: 15px;
+      background-color: #eef2f7;
+      border-radius: 8px;
+      flex: 1;
+      margin: 0 10px;
+    }
+    .metric strong {
+      display: block;
+      font-size: 24px;
+      color: #2c3e50;
+    }
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+    .image-card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .image-card img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+    }
+    .image-info {
+      padding: 10px;
+      font-size: 14px;
+      background-color: #f8f9fa;
+    }
+    .loading {
+      text-align: center;
+      padding: 20px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Multi-threaded Image Processor</h1>
+  
+  <div class="container">
+    <div class="upload-form">
+      <h2>Upload Images</h2>
+      <form id="uploadForm">
+        <div class="form-group">
+          <label for="images">Select multiple images:</label>
+          <input type="file" id="images" name="images" multiple accept="image/*" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="filter">Select filter to apply:</label>
+          <select id="filter" name="filter">
+            <option value="grayscale">Grayscale</option>
+            <option value="sepia">Sepia</option>
+            <option value="blur">Blur</option>
+            <option value="sharpen">Sharpen</option>
+            <option value="invert">Invert</option>
+            <option value="emboss">Emboss</option>
+            <option value="edge-detection">Edge Detection</option>
+          </select>          
+        </div>
+        
+        <div class="processing-options">
+          <p>Processing method:</p>
+          <div class="radio-group">
+            <input type="radio" id="singleThread" name="threadingMode" value="false" checked>
+            <label for="singleThread">Single-threaded</label>
+          </div>
+          <div class="radio-group">
+            <input type="radio" id="multiThread" name="threadingMode" value="true">
+            <label for="multiThread">Multi-threaded</label>
+          </div>
+        </div>
+        
+        <button type="submit">Process Images</button>
+      </form>
+    </div>
+    
+    <div class="loading" id="loadingIndicator">
+      <h3>Processing images...</h3>
+      <p>This may take a moment depending on the number and size of images.</p>
+    </div>
+    
+    <div class="results" id="results">
+      <h2>Processing Results</h2>
+      
+      <div class="metrics">
+        <div class="metric">
+          <span>Processing Time</span>
+          <strong id="processingTime">-</strong>
+          <span>milliseconds</span>
+        </div>
+        <div class="metric">
+          <span>Images Processed</span>
+          <strong id="imageCount">-</strong>
+        </div>
+        <div class="metric">
+          <span>Processing Method</span>
+          <strong id="processingMethod">-</strong>
+        </div>
+      </div>
+      
+      <h3>Processed Images</h3>
+      <div class="gallery" id="gallery"></div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const formData = new FormData(this);
+      const images = document.getElementById('images').files;
+      const filter = document.getElementById('filter').value;
+      const useMultiThreading = document.querySelector('input[name="threadingMode"]:checked').value;
+      
+      // Add each file to the form data
+      for (let i = 0; i < images.length; i++) {
+        formData.append('images', images[i]);
+      }
+      
+      console.log(formData);
+    //   Add filter and threading mode
+    //   formData.append('filter', filter);
+      formData.append('useMultiThreading', useMultiThreading);
+      
+      // Show loading indicator
+      document.getElementById('loadingIndicator').style.display = 'block';
+      document.getElementById('results').style.display = 'none';
+      
+      try {
+        const response = await fetch('/upload', {
+          method: 'POST',
+          body: formData
+        });
+        
+        const data = await response.json();
+        
+        // Hide loading, show results
+        document.getElementById('loadingIndicator').style.display = 'none';
+        document.getElementById('results').style.display = 'block';
+        
+        // Update metrics
+        document.getElementById('processingTime').textContent = data.processingTime;
+        document.getElementById('imageCount').textContent = data.results.length;
+        document.getElementById('processingMethod').textContent = 
+          useMultiThreading === 'true' ? 'Multi-threaded' : 'Single-threaded';
+        
+        // Clear and populate gallery
+        const gallery = document.getElementById('gallery');
+        gallery.innerHTML = '';
+        
+        data.results.forEach(image => {
+          const card = document.createElement('div');
+          card.className = 'image-card';
+          
+          const img = document.createElement('img');
+          img.src = image.processedPath;
+          img.alt = image.originalName;
+          
+          const info = document.createElement('div');
+          info.className = 'image-info';
+          info.textContent = image.originalName;
+          
+          card.appendChild(img);
+          card.appendChild(info);
+          gallery.appendChild(card);
+        });
+        
+      } catch (error) {
+        console.error('Error uploading images:', error);
+        alert('Failed to process images. Please try again.');
+        document.getElementById('loadingIndicator').style.display = 'none';
+      }
+    });
+  </script>
+</body>
+</html>
